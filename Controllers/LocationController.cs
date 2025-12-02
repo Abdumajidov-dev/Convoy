@@ -22,13 +22,54 @@ public class LocationController : ControllerBase
     // POST: api/location
     // Array ichida objectlar qabul qilish
     [HttpPost]
-    public async Task<ActionResult> PostLocations([FromBody] List<LocationDto> locations)
+    public async Task<ActionResult> PostLocations([FromBody] List<LocationDto>? locations)
     {
-        if (locations == null || !locations.Any())
+        // Kelayotgan raw request body'ni log qilish
+        Request.EnableBuffering();
+        using (var reader = new StreamReader(Request.Body, leaveOpen: true))
         {
-            return BadRequest(new { message = "Lokatsiyalar bo'sh bo'lmasligi kerak" });
+            var body = await reader.ReadToEndAsync();
+            Request.Body.Position = 0;
+            _logger.LogInformation("Received request body: {Body}", body);
+            _logger.LogInformation("Content-Type: {ContentType}", Request.ContentType);
         }
 
+        if (locations == null || !locations.Any())
+        {
+            _logger.LogWarning("Locations is null or empty");
+            return BadRequest(new { message = "Lokatsiyalar bo'sh bo'lmasligi kerak", error = "The locations field is required." });
+        }
+
+        return await PostLocationsInternal(locations);
+    }
+
+    // POST: api/location/batch
+    // Object formatda qabul qilish: { "locations": [...] }
+    [HttpPost("batch")]
+    public async Task<ActionResult> PostLocationsBatch([FromBody] LocationBatchDto? batchDto)
+    {
+        // Kelayotgan raw request body'ni log qilish
+        Request.EnableBuffering();
+        using (var reader = new StreamReader(Request.Body, leaveOpen: true))
+        {
+            var body = await reader.ReadToEndAsync();
+            Request.Body.Position = 0;
+            _logger.LogInformation("Batch endpoint - Received request body: {Body}", body);
+            _logger.LogInformation("Batch endpoint - Content-Type: {ContentType}", Request.ContentType);
+        }
+
+        if (batchDto?.Locations == null || !batchDto.Locations.Any())
+        {
+            _logger.LogWarning("BatchDto locations is null or empty");
+            return BadRequest(new { message = "Lokatsiyalar bo'sh bo'lmasligi kerak", error = "The locations field is required." });
+        }
+
+        // Asosiy PostLocations methodini chaqirish - duplicate code oldini olish
+        return await PostLocationsInternal(batchDto.Locations);
+    }
+
+    private async Task<ActionResult> PostLocationsInternal(List<LocationDto> locations)
+    {
         try
         {
             var savedCount = 0;

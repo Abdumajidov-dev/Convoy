@@ -1,73 +1,57 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# Convoy API - Setup Guide
 
 ## Project Overview
 
 Convoy API is a real-time location tracking system built with ASP.NET Core 8.0 and PostgreSQL. It tracks driver locations with batch upload support, designed for mobile fleet management applications.
 
-## Development Commands
+## Quick Start
 
-### Prerequisites
+### 1. Start PostgreSQL
 ```bash
-# Start PostgreSQL (required before running API)
 docker run --name convoy-postgres -e POSTGRES_PASSWORD=2001 -p 5432:5432 -d postgres:15
 ```
 
-### Running the Application
-```bash
-# Run with HTTP profile (recommended for local network testing)
-dotnet run --launch-profile http
-
-# Run with HTTPS profile
-dotnet run --launch-profile https
-
-# Restore packages
-dotnet restore
-
-# Build project
-dotnet build
+### 2. Setup Windows Firewall (First Time Only - Run as Administrator)
+```powershell
+# Allow incoming connections on port 5084
+netsh advfirewall firewall add rule name="Convoy API HTTP" dir=in action=allow protocol=TCP localport=5084
+netsh advfirewall firewall add rule name="Convoy API HTTPS" dir=in action=allow protocol=TCP localport=7147
 ```
 
-### Database Operations
+### 3. Run the API
 ```bash
-# Create a new migration
+# For network access (mobile devices on same WiFi)
+dotnet run --launch-profile http
+
+# For localhost only
+dotnet run --launch-profile "http (localhost only)"
+```
+
+### 4. Test the API
+- Swagger UI: `http://localhost:5084/swagger`
+- Network access: `http://10.100.104.128:5084/swagger`
+
+## Database Commands
+
+```bash
+# Create migration
 dotnet ef migrations add <MigrationName>
 
-# Apply migrations to database
+# Apply migrations
 dotnet ef database update
 
-# Remove last migration (if not applied)
+# Remove last migration
 dotnet ef migrations remove
 ```
 
-### Windows-Specific Setup
-```bash
-# Setup Windows Firewall rules (run as Administrator)
-setup-firewall.bat
-
-# Setup URL reservation for network access (run as Administrator)
-# This allows running without admin rights
-setup-url-reservation.bat
-
-# Start API with convenience script
-start-api.bat
-```
-
-### Visual Studio Development
-
-**Important:** To run the API with network access (not just localhost) in Visual Studio, you must:
-
-1. **Run Visual Studio as Administrator**, OR
-2. **Setup URL reservation once** using `setup-url-reservation.bat`
+## Visual Studio Setup
 
 **Launch Profiles:**
-- `http (Admin Required)` - Listens on `0.0.0.0:5084` (all network interfaces, requires admin or URL reservation)
-- `http (localhost only)` - Listens on `localhost:5084` (no admin required)
-- `https` - HTTPS with localhost certificate
-- `IIS Express` - IIS Express hosting
-
-See `VS_ADMIN_GUIDE.md` for detailed setup instructions.
+- `http` - Network access on `0.0.0.0:5084` (recommended for mobile testing)
+- `http (localhost only)` - Localhost only, no admin required
+- `https` - HTTPS with certificate
+- `Convoy.Api` - HTTP + HTTPS
+- `IIS Express` - IIS hosting
 
 ## Architecture
 
@@ -106,9 +90,11 @@ See `VS_ADMIN_GUIDE.md` for detailed setup instructions.
 ### Controllers
 
 **LocationController** (`Controllers/LocationController.cs`)
-- `POST /api/location` - Accepts array of location objects, parses string coordinates to doubles, converts timestamps to UTC
+- `POST /api/location` - Accepts JSON array: `[{userId, latitude, longitude, timestamp}]`
+- `POST /api/location/batch` - Accepts JSON object: `{locations: [{userId, latitude, longitude, timestamp}]}`
 - `GET /api/location/user/{userId}` - Returns location history for specific user (default limit: 100)
 - `GET /api/location/latest` - Returns latest location for each user using GroupBy
+- Includes request body logging for debugging mobile clients
 
 **UserController** (`Controllers/UserController.cs`)
 - Full CRUD operations for users
