@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version:*)",
+      "Bash(rm:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet add package:*)",
+      "Bash(mkdir:*)",
+      "Bash(dotnet ef migrations:*)",
+      "Bash(dotnet ef database update:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet run)",
+      "Bash(tree:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(taskkill:*)",
+      "Bash(nul)",
+      "Bash(dotnet run:*)",
+      "Bash(powershell -Command \"Start-Process cmd -ArgumentList ''/c cd /d \"\"%cd%\"\" && setup-firewall.bat && pause'' -Verb RunAs\")",
+      "Bash(echo:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(netsh http show urlacl:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 5784 -Force\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
