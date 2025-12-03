@@ -22,7 +22,11 @@
       "Bash(netsh http show urlacl:*)",
       "Bash(powershell -Command \"Stop-Process -Id 5784 -Force\")",
       "Bash(netsh advfirewall firewall show rule:*)",
-      "Bash(del \"C:\\Users\\abdum\\OneDrive\\Desktop\\AdminPanel\\Convoy.Api\\start-api.bat\" \"C:\\Users\\abdum\\OneDrive\\Desktop\\AdminPanel\\Convoy.Api\\setup-firewall.bat\" \"C:\\Users\\abdum\\OneDrive\\Desktop\\AdminPanel\\Convoy.Api\\setup-url-reservation.bat\")"
+      "Bash(del \"C:\\Users\\abdum\\OneDrive\\Desktop\\AdminPanel\\Convoy.Api\\start-api.bat\" \"C:\\Users\\abdum\\OneDrive\\Desktop\\AdminPanel\\Convoy.Api\\setup-firewall.bat\" \"C:\\Users\\abdum\\OneDrive\\Desktop\\AdminPanel\\Convoy.Api\\setup-url-reservation.bat\")",
+      "Bash(dir:*)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

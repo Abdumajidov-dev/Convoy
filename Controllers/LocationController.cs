@@ -1,7 +1,6 @@
-using Convoy.Api.Data;
-using Convoy.Api.Models;
+using Convoy.Domain.DTOs;
+using Convoy.Service.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 
 namespace Convoy.Api.Controllers;
@@ -10,21 +9,23 @@ namespace Convoy.Api.Controllers;
 [Route("api/[controller]")]
 public class LocationController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly ILocationService _locationService;
     private readonly ILogger<LocationController> _logger;
 
-    public LocationController(AppDbContext context, ILogger<LocationController> logger)
+    public LocationController(ILocationService locationService, ILogger<LocationController> logger)
     {
-        _context = context;
+        _locationService = locationService;
         _logger = logger;
     }
 
-    // POST: api/location
-    // Array ichida objectlar qabul qilish
+    /// <summary>
+    /// POST: api/location
+    /// Accepts: { "userId": 1, "locations": [{lat, lng, timestamp, speed, accuracy}, ...] }
+    /// </summary>
     [HttpPost]
-    public async Task<ActionResult> PostLocations([FromBody] List<LocationDto>? locations)
+    public async Task<ActionResult> PostLocations([FromBody] LocationDto? locationDto)
     {
-        // Kelayotgan raw request body'ni log qilish
+        // Log raw request body
         Request.EnableBuffering();
         using (var reader = new StreamReader(Request.Body, leaveOpen: true))
         {
@@ -34,113 +35,93 @@ public class LocationController : ControllerBase
             _logger.LogInformation("Content-Type: {ContentType}", Request.ContentType);
         }
 
-        if (locations == null || !locations.Any())
+        if (locationDto == null)
         {
-            _logger.LogWarning("Locations is null or empty");
-            return BadRequest(new { message = "Lokatsiyalar bo'sh bo'lmasligi kerak", error = "The locations field is required." });
+            _logger.LogWarning("LocationDto is null");
+            return BadRequest(new { message = "Request body bo'sh bo'lmasligi kerak" });
         }
 
-        return await PostLocationsInternal(locations);
-    }
-
-    // POST: api/location/batch
-    // Object formatda qabul qilish: { "locations": [...] }
-    [HttpPost("batch")]
-    public async Task<ActionResult> PostLocationsBatch([FromBody] LocationBatchDto? batchDto)
-    {
-        // Kelayotgan raw request body'ni log qilish
-        Request.EnableBuffering();
-        using (var reader = new StreamReader(Request.Body, leaveOpen: true))
+        if (locationDto.Locations == null || !locationDto.Locations.Any())
         {
-            var body = await reader.ReadToEndAsync();
-            Request.Body.Position = 0;
-            _logger.LogInformation("Batch endpoint - Received request body: {Body}", body);
-            _logger.LogInformation("Batch endpoint - Content-Type: {ContentType}", Request.ContentType);
+            _logger.LogWarning("Locations array is null or empty");
+            return BadRequest(new { message = "Locations array bo'sh bo'lmasligi kerak" });
         }
 
-        if (batchDto?.Locations == null || !batchDto.Locations.Any())
-        {
-            _logger.LogWarning("BatchDto locations is null or empty");
-            return BadRequest(new { message = "Lokatsiyalar bo'sh bo'lmasligi kerak", error = "The locations field is required." });
-        }
-
-        // Asosiy PostLocations methodini chaqirish - duplicate code oldini olish
-        return await PostLocationsInternal(batchDto.Locations);
-    }
-
-    private async Task<ActionResult> PostLocationsInternal(List<LocationDto> locations)
-    {
         try
         {
-            var savedCount = 0;
-            var errors = new List<string>();
+            int savedCount = 0;
+            List<string> errors = new();
 
-            foreach (var dto in locations)
+            foreach (var point in locationDto.Locations)
             {
                 try
                 {
-                    // String'larni parse qilish
-                    if (!double.TryParse(dto.Latitude, NumberStyles.Any, CultureInfo.InvariantCulture, out var latitude))
+                    // Parse coordinates
+                    if (!double.TryParse(point.Latitude, NumberStyles.Any, CultureInfo.InvariantCulture, out var lat) ||
+                        !double.TryParse(point.Longitude, NumberStyles.Any, CultureInfo.InvariantCulture, out var lng))
                     {
-                        errors.Add($"UserId {dto.UserId}: Latitude noto'g'ri format");
+                        errors.Add($"Invalid coordinates: Lat={point.Latitude}, Lng={point.Longitude}");
                         continue;
                     }
 
-                    if (!double.TryParse(dto.Longitude, NumberStyles.Any, CultureInfo.InvariantCulture, out var longitude))
+                    // Parse timestamp
+                    if (!DateTime.TryParse(point.Timestamp, out var timestamp))
                     {
-                        errors.Add($"UserId {dto.UserId}: Longitude noto'g'ri format");
-                        continue;
+                        timestamp = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        timestamp = DateTime.SpecifyKind(timestamp, DateTimeKind.Utc);
                     }
 
-                    if (!DateTime.TryParse(dto.Timestamp, out var timestamp))
+                    // Parse optional fields
+                    double? speed = null;
+                    if (!string.IsNullOrEmpty(point.Speed))
                     {
-                        errors.Add($"UserId {dto.UserId}: Timestamp noto'g'ri format");
-                        continue;
+                        if (double.TryParse(point.Speed, NumberStyles.Any, CultureInfo.InvariantCulture, out var speedValue))
+                            speed = speedValue;
                     }
 
-                    // UTC ga o'tkazish (PostgreSQL uchun)
-                    var utcTimestamp = timestamp.Kind == DateTimeKind.Utc
-                        ? timestamp
-                        : DateTime.SpecifyKind(timestamp, DateTimeKind.Utc);
-
-                    // User mavjudligini tekshirish
-                    var userExists = await _context.Users.AnyAsync(u => u.Id == dto.UserId);
-                    if (!userExists)
+                    double? accuracy = null;
+                    if (!string.IsNullOrEmpty(point.Accuracy))
                     {
-                        errors.Add($"UserId {dto.UserId} topilmadi");
-                        continue;
+                        if (double.TryParse(point.Accuracy, NumberStyles.Any, CultureInfo.InvariantCulture, out var accuracyValue))
+                            accuracy = accuracyValue;
                     }
 
-                    // Location yaratish
-                    var location = new Location
+                    // Save to database
+                    var result = await _locationService.AddLocationAsync(new Domain.Entities.Location
                     {
-                        UserId = dto.UserId,
-                        Latitude = latitude,
-                        Longitude = longitude,
-                        Timestamp = utcTimestamp
-                    };
+                        UserId = locationDto.UserId,
+                        Latitude = lat,
+                        Longitude = lng,
+                        Timestamp = timestamp,
+                        Speed = speed,
+                        Accuracy = accuracy
+                    });
 
-                    _context.Locations.Add(location);
-                    savedCount++;
+                    if (result != null)
+                    {
+                        savedCount++;
+                    }
+                    else
+                    {
+                        errors.Add($"Failed to save location at {timestamp}");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Lokatsiya saqlashda xatolik: UserId {UserId}", dto.UserId);
-                    errors.Add($"UserId {dto.UserId}: {ex.Message}");
+                    errors.Add($"Error: {ex.Message}");
+                    _logger.LogError(ex, "Error processing location point");
                 }
-            }
-
-            // Barcha o'zgarishlarni saqlash
-            if (savedCount > 0)
-            {
-                await _context.SaveChangesAsync();
             }
 
             return Ok(new
             {
-                success = true,
-                savedCount = savedCount,
-                totalReceived = locations.Count,
+                success = savedCount > 0,
+                userId = locationDto.UserId,
+                savedCount,
+                totalReceived = locationDto.Locations.Count,
                 errors = errors.Any() ? errors : null
             });
         }
@@ -151,24 +132,22 @@ public class LocationController : ControllerBase
         }
     }
 
-    // GET: api/location/user/{userId}
-    // Bitta user uchun barcha lokatsiyalar
+    /// <summary>
+    /// GET: api/location/user/{userId}
+    /// Get all locations for a specific user
+    /// </summary>
     [HttpGet("user/{userId}")]
-    public async Task<ActionResult<IEnumerable<Location>>> GetUserLocations(int userId, [FromQuery] int limit = 100)
+    public async Task<ActionResult> GetUserLocations(int userId, [FromQuery] int limit = 100)
     {
         try
         {
-            var locations = await _context.Locations
-                .Where(l => l.UserId == userId)
-                .OrderByDescending(l => l.Timestamp)
-                .Take(limit)
-                .ToListAsync();
+            var locations = await _locationService.GetUserLocationsAsync(userId, limit);
 
             return Ok(new
             {
-                userId = userId,
-                count = locations.Count,
-                locations = locations
+                userId,
+                count = locations.Count(),
+                locations
             });
         }
         catch (Exception ex)
@@ -178,23 +157,20 @@ public class LocationController : ControllerBase
         }
     }
 
-    // GET: api/location/latest
-    // Barcha userlar uchun oxirgi lokatsiyalar
+    /// <summary>
+    /// GET: api/location/latest
+    /// Get latest location for all users
+    /// </summary>
     [HttpGet("latest")]
     public async Task<ActionResult> GetLatestLocations()
     {
         try
         {
-            var latestLocations = await _context.Locations
-                .Include(l => l.User)
-                .GroupBy(l => l.UserId)
-                .Select(g => g.OrderByDescending(l => l.Timestamp).FirstOrDefault())
-                .Where(l => l != null)
-                .ToListAsync();
+            var latestLocations = await _locationService.GetLatestLocationsAsync();
 
             return Ok(new
             {
-                count = latestLocations.Count,
+                count = latestLocations.Count(),
                 locations = latestLocations
             });
         }

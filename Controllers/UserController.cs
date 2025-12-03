@@ -1,7 +1,6 @@
-using Convoy.Api.Data;
-using Convoy.Api.Models;
+using Convoy.Domain.DTOs;
+using Convoy.Service.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Convoy.Api.Controllers;
 
@@ -9,12 +8,12 @@ namespace Convoy.Api.Controllers;
 [Route("api/[controller]")]
 public class UserController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IUserService _userService;
     private readonly ILogger<UserController> _logger;
 
-    public UserController(AppDbContext context, ILogger<UserController> logger)
+    public UserController(IUserService userService, ILogger<UserController> logger)
     {
-        _context = context;
+        _userService = userService;
         _logger = logger;
     }
 
@@ -24,18 +23,7 @@ public class UserController : ControllerBase
     {
         try
         {
-            var users = await _context.Users
-                .Where(u => u.IsActive)
-                .Select(u => new UserResponseDto
-                {
-                    Id = u.Id,
-                    Name = u.Name,
-                    Phone = u.Phone,
-                    IsActive = u.IsActive,
-                    CreatedAt = u.CreatedAt
-                })
-                .ToListAsync();
-
+            var users = await _userService.GetAllActiveUsersAsync();
             return Ok(users);
         }
         catch (Exception ex)
@@ -51,17 +39,7 @@ public class UserController : ControllerBase
     {
         try
         {
-            var user = await _context.Users
-                .Where(u => u.Id == id)
-                .Select(u => new UserResponseDto
-                {
-                    Id = u.Id,
-                    Name = u.Name,
-                    Phone = u.Phone,
-                    IsActive = u.IsActive,
-                    CreatedAt = u.CreatedAt
-                })
-                .FirstOrDefaultAsync();
+            var user = await _userService.GetByIdAsync(id);
 
             if (user == null)
             {
@@ -83,38 +61,12 @@ public class UserController : ControllerBase
     {
         try
         {
-            // Phone unique ekanligini tekshirish
-            var existingUser = await _context.Users
-                .FirstOrDefaultAsync(u => u.Phone == createDto.Phone);
-
-            if (existingUser != null)
-            {
-                return BadRequest(new { message = "Bu telefon raqami allaqachon ro'yxatdan o'tgan" });
-            }
-
-            // DTO'dan User entity yaratish
-            var user = new User
-            {
-                Name = createDto.Name,
-                Phone = createDto.Phone,
-                IsActive = createDto.IsActive,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            // Response DTO yaratish
-            var response = new UserResponseDto
-            {
-                Id = user.Id,
-                Name = user.Name,
-                Phone = user.Phone,
-                IsActive = user.IsActive,
-                CreatedAt = user.CreatedAt
-            };
-
-            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, response);
+            var user = await _userService.CreateAsync(createDto);
+            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -129,39 +81,16 @@ public class UserController : ControllerBase
     {
         try
         {
-            var user = await _context.Users.FindAsync(id);
-            if (user == null)
+            var user = await _userService.UpdateAsync(id, updateDto);
+            return Ok(user);
+        }
+        catch (InvalidOperationException ex)
+        {
+            if (ex.Message.Contains("topilmadi"))
             {
-                return NotFound(new { message = "User topilmadi" });
+                return NotFound(new { message = ex.Message });
             }
-
-            // Phone unique tekshirish (o'zi bundan boshqa)
-            var phoneExists = await _context.Users
-                .AnyAsync(u => u.Phone == updateDto.Phone && u.Id != id);
-
-            if (phoneExists)
-            {
-                return BadRequest(new { message = "Bu telefon raqami boshqa user tomonidan ishlatilmoqda" });
-            }
-
-            // Ma'lumotlarni yangilash
-            user.Name = updateDto.Name;
-            user.Phone = updateDto.Phone;
-            user.IsActive = updateDto.IsActive;
-
-            await _context.SaveChangesAsync();
-
-            // Response DTO
-            var response = new UserResponseDto
-            {
-                Id = user.Id,
-                Name = user.Name,
-                Phone = user.Phone,
-                IsActive = user.IsActive,
-                CreatedAt = user.CreatedAt
-            };
-
-            return Ok(response);
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -176,15 +105,11 @@ public class UserController : ControllerBase
     {
         try
         {
-            var user = await _context.Users.FindAsync(id);
-            if (user == null)
+            var result = await _userService.DeleteAsync(id);
+            if (!result)
             {
                 return NotFound(new { message = "User topilmadi" });
             }
-
-            // Soft delete
-            user.IsActive = false;
-            await _context.SaveChangesAsync();
 
             return NoContent();
         }
