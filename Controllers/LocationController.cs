@@ -159,24 +159,139 @@ public class LocationController : ControllerBase
 
     /// <summary>
     /// GET: api/location/latest
-    /// Get latest location for all users
+    /// Get latest location for each user (for WPF client compatibility)
+    /// Returns: List<LocationResponseDto>
     /// </summary>
     [HttpGet("latest")]
-    public async Task<ActionResult> GetLatestLocations()
+    public async Task<ActionResult<List<LocationResponseDto>>> GetLatestLocations()
     {
         try
         {
             var latestLocations = await _locationService.GetLatestLocationsAsync();
 
-            return Ok(new
+            // Convert to LocationResponseDto list (matches WPF client's LocationPoint)
+            var response = latestLocations.Select(loc => new LocationResponseDto
             {
-                count = latestLocations.Count(),
-                locations = latestLocations
-            });
+                Id = loc.Id,
+                UserId = loc.UserId,
+                Latitude = loc.Latitude,
+                Longitude = loc.Longitude,
+                Timestamp = loc.Timestamp, // Already UTC from database
+                Speed = loc.Speed,
+                Accuracy = loc.Accuracy
+            }).ToList();
+
+            _logger.LogInformation("Returning {Count} latest locations", response.Count);
+
+            // Return plain list (not wrapped) for WPF client compatibility
+            return Ok(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Oxirgi lokatsiyalarni olishda xatolik");
+            return StatusCode(500, new { message = "Server xatosi" });
+        }
+    }
+
+    /// <summary>
+    /// GET: api/location/user/{userId}/date-range?startDate=2025-12-02&endDate=2025-12-03
+    /// Get user locations for a specific date range (for Admin panel historical route view)
+    /// </summary>
+    [HttpGet("user/{userId}/date-range")]
+    public async Task<ActionResult> GetUserLocationsByDateRange(
+        int userId,
+        [FromQuery] DateTime startDate,
+        [FromQuery] DateTime endDate)
+    {
+        try
+        {
+            // DateTime Kind ni UTC ga o'zgartirish (PostgreSQL uchun)
+            var startDateUtc = DateTime.SpecifyKind(startDate, DateTimeKind.Utc);
+            var endDateUtc = DateTime.SpecifyKind(endDate, DateTimeKind.Utc);
+
+            var locations = await _locationService.GetUserLocationsByDateRangeAsync(userId, startDateUtc, endDateUtc);
+
+            var response = locations.Select(loc => new LocationResponseDto
+            {
+                Id = loc.Id,
+                UserId = loc.UserId,
+                Latitude = loc.Latitude,
+                Longitude = loc.Longitude,
+                Timestamp = loc.Timestamp,
+                Speed = loc.Speed,
+                Accuracy = loc.Accuracy
+            }).ToList();
+
+            _logger.LogInformation(
+                "Returning {Count} locations for user {UserId} from {StartDate} to {EndDate}",
+                response.Count, userId, startDate, endDate);
+
+            return Ok(new
+            {
+                userId,
+                startDate = startDateUtc,
+                endDate = endDateUtc,
+                count = response.Count,
+                locations = response
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Date range bo'yicha lokatsiyalarni olishda xatolik");
+            return StatusCode(500, new { message = "Server xatosi" });
+        }
+    }
+
+    /// <summary>
+    /// GET: api/location/all-users/date?date=2025-12-02
+    /// Get all users' locations for a specific date (Admin overview for one day)
+    /// </summary>
+    [HttpGet("all-users/date")]
+    public async Task<ActionResult> GetAllUsersLocationsByDate([FromQuery] DateTime date)
+    {
+        try
+        {
+            // DateTime Kind ni UTC ga o'zgartirish (PostgreSQL uchun)
+            var dateUtc = DateTime.SpecifyKind(date, DateTimeKind.Utc);
+
+            var locations = await _locationService.GetAllUsersLocationsByDateAsync(dateUtc);
+
+            // User bo'yicha guruhlash
+            var grouped = locations
+                .GroupBy(l => l.UserId)
+                .Select(g => new
+                {
+                    userId = g.Key,
+                    userName = g.First().User?.Name ?? "Unknown",
+                    locationCount = g.Count(),
+                    locations = g.Select(loc => new LocationResponseDto
+                    {
+                        Id = loc.Id,
+                        UserId = loc.UserId,
+                        Latitude = loc.Latitude,
+                        Longitude = loc.Longitude,
+                        Timestamp = loc.Timestamp,
+                        Speed = loc.Speed,
+                        Accuracy = loc.Accuracy
+                    }).ToList()
+                })
+                .ToList();
+
+            _logger.LogInformation(
+                "Returning locations for {UserCount} users on date {Date}",
+                grouped.Count, dateUtc.ToString("yyyy-MM-dd"));
+
+            return Ok(new
+            {
+                date = dateUtc.ToString("yyyy-MM-dd"),
+                userCount = grouped.Count,
+                totalLocations = locations.Count(),
+                users = grouped
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Barcha userlar uchun lokatsiyalarni olishda xatolik");
             return StatusCode(500, new { message = "Server xatosi" });
         }
     }

@@ -22,6 +22,7 @@ builder.Services.AddScoped<ILocationRepository, LocationRepository>();
 // Register Services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
+builder.Services.AddScoped<IMockDataService, MockDataService>(); // Mock data generation service
 
 // SignalR qo'shish (Real-time location tracking)
 builder.Services.AddSignalR();
