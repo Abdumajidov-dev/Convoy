@@ -1,4 +1,4 @@
-using Convoy.Api.Hubs;
+﻿using Convoy.Api.Hubs;
 using Convoy.Data.Context;
 using Convoy.Data.Interfaces;
 using Convoy.Data.Repositories;
@@ -9,25 +9,31 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// 🔹 RENDER UCHUN PORT
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+builder.WebHost.UseUrls($"http://*:{port}");
 
-// Database connection - PostgreSQL
+// 🔹 DATABASE (RENDER ENV DAN OLADI)
+var connectionString =
+    Environment.GetEnvironmentVariable("DATABASE_URL")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
-// Register Repositories
+// Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ILocationRepository, LocationRepository>();
 
-// Register Services
+// Services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
-builder.Services.AddScoped<IMockDataService, MockDataService>(); // Mock data generation service
+builder.Services.AddScoped<IMockDataService, MockDataService>();
 
-// SignalR qo'shish (Real-time location tracking)
+// SignalR
 builder.Services.AddSignalR();
 
-// CORS policy (Flutter app va SignalR uchun)
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -41,15 +47,16 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.ReferenceHandler =
+            System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Seed data (test uchun)
+// Seed
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -64,23 +71,19 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// ❌ HTTPS O‘CHIRILDI — Render o‘zi qiladi
+// app.UseHttpsRedirection();
 
-// CORS'ni yoqish
 app.UseCors("AllowAll");
-
 app.UseAuthorization();
 
 app.MapControllers();
-
-// SignalR Hub endpoint
 app.MapHub<LocationHub>("/hubs/location");
 
 app.Run();
