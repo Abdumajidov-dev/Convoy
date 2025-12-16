@@ -13,7 +13,6 @@ public class AppDbContext : DbContext
     public DbSet<Location> Locations { get; set; }
     public DbSet<DailySummary> DailySummaries { get; set; }
     public DbSet<HourlySummary> HourlySummaries { get; set; }
-    public DbSet<Branch> Branches { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -91,26 +90,6 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.DailySummaryId);
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => new { e.DailySummaryId, e.Hour }).IsUnique(); // Bir summary uchun bir soat bitta entry
-        });
-
-        // Branch configuration
-        modelBuilder.Entity<Branch>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).HasMaxLength(200);
-            entity.Property(e => e.Code).HasMaxLength(50);
-            entity.Property(e => e.StateName).HasMaxLength(100);
-            entity.Property(e => e.RegionName).HasMaxLength(100);
-            entity.Property(e => e.Address).HasMaxLength(500);
-            entity.Property(e => e.PhoneNumber).HasMaxLength(50);
-            entity.Property(e => e.Target).HasMaxLength(200);
-            entity.Property(e => e.LocationUrl).HasMaxLength(500);
-            entity.Property(e => e.ResponsibleWorker).HasMaxLength(200);
-
-            // Index for faster lookups
-            entity.HasIndex(e => e.Code);
-            entity.HasIndex(e => e.StateId);
-            entity.HasIndex(e => e.RegionId);
         });
     }
 }

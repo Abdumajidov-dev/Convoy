@@ -13,33 +13,6 @@ namespace Convoy.Data.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "branches",
-                columns: table => new
-                {
-                    id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    code = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    state_id = table.Column<int>(type: "integer", nullable: true),
-                    state_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    region_id = table.Column<int>(type: "integer", nullable: true),
-                    region_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    address = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    phone_number = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    target = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    location = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    responsible_worker = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    deleted_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    is_deleted = table.Column<bool>(type: "boolean", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_branches", x => x.id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "users",
                 columns: table => new
                 {
@@ -161,21 +134,6 @@ namespace Convoy.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_branches_code",
-                table: "branches",
-                column: "code");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_branches_region_id",
-                table: "branches",
-                column: "region_id");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_branches_state_id",
-                table: "branches",
-                column: "state_id");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_daily_summaries_date",
                 table: "daily_summaries",
                 column: "date");
@@ -227,9 +185,6 @@ namespace Convoy.Data.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "branches");
-
             migrationBuilder.DropTable(
                 name: "hourly_summaries");
 
