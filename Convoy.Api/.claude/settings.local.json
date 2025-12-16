@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version:*)",
+      "Bash(rm:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet add package:*)",
+      "Bash(mkdir:*)",
+      "Bash(dotnet ef migrations:*)",
+      "Bash(dotnet ef database update:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet run)",
+      "Bash(tree:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(taskkill:*)",
+      "Bash(nul)",
+      "Bash(dotnet run:*)",
+      "Bash(powershell -Command \"Start-Process cmd -ArgumentList ''/c cd /d \"\"%cd%\"\" && setup-firewall.bat && pause'' -Verb RunAs\")",
+      "Bash(echo:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(netsh http show urlacl:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 5784 -Force\")",
+      "Bash(netsh advfirewall firewall show rule:*)",
+      "Bash(del \"C:\\Users\\abdum\\OneDrive\\Desktop\\AdminPanel\\Convoy.Api\\start-api.bat\" \"C:\\Users\\abdum\\OneDrive\\Desktop\\AdminPanel\\Convoy.Api\\setup-firewall.bat\" \"C:\\Users\\abdum\\OneDrive\\Desktop\\AdminPanel\\Convoy.Api\\setup-url-reservation.bat\")",
+      "Bash(dir:*)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(curl:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

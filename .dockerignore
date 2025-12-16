@@ -1,0 +1,51 @@
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.cache
+
+# Rider
+.idea/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+
+# Documentation
+*.md
+README.md
+CLAUDE.md
+
+# Test files
+**/TestResults/
+**/*Test*.cs
+
+# NuGet
+*.nupkg
+**/packages/
+
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Environment files
+.env
+.env.local
+
+# Other projects (keep only Convoy)
+ZiyoNurAdminPanel/
+ZiyoNurAdminPanel.Ui/
+SignalRTest/
