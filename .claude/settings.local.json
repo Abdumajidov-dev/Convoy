@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(railway --version:*)",
+      "Bash(railway link:*)",
+      "Bash(railway whoami:*)",
+      "Bash(set \"ConnectionStrings__DefaultConnection=postgresql://postgres:rzfxyjSafhhYZqHwxzExyQofVNuyEoek@shinkansen.proxy.rlwy.net:28440/railway\")",
+      "Bash(dotnet ef database update:*)",
+      "Bash(dotnet ef migrations:*)",
+      "Bash(psql:*)",
+      "Bash(dotnet ef database:*)",
+      "Bash(dotnet script:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet run:*)",
+      "Bash(set \"ConnectionStrings__DefaultConnection=Host=shinkansen.proxy.rlwy.net;Port=28440;Database=railway;Username=postgres;Password=rzfxyjSafhhYZqHwxzExyQofVNuyEoek;SSL Mode=Prefer;Trust Server Certificate=true\")",
+      "Bash(findstr:*)",
+      "Bash(powershell -Command \"Start-Process ''C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe''\")",
+      "Bash(timeout /t 25 /nobreak)",
+      "Bash(ping:*)",
+      "Bash(nul)",
+      "Bash(docker run:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(dotnet build:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
