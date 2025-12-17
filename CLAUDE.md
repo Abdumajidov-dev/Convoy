@@ -4,45 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a **multi-project .NET solution repository** containing several related but independent applications:
-
-1. **Convoy** - Real-time GPS location tracking system (main focus)
-2. **ZiyoNurAdminPanel.Ui** - WPF desktop admin panel for ZiyoMarket e-commerce platform
-3. **SignalRTest** - Test project for SignalR functionality
-4. **ZiyoNurAdminPanel** - Legacy backend (archived)
-
-### Primary Project: Convoy
-
-Convoy is a fleet management API built with **Clean Architecture** principles, designed for tracking driver locations in real-time using **SignalR WebSocket** for instant bi-directional communication with mobile clients.
+This is a **Convoy** - a fleet management API built with **Clean Architecture** principles, designed for tracking driver locations in real-time using **SignalR WebSocket** for instant bi-directional communication with mobile clients.
 
 ## Quick Start Commands
 
-### Convoy API (Main Project)
+### Build and Run
 
 ```bash
-# Navigate to Convoy solution root (if needed)
-cd C:\Users\abdum\OneDrive\Desktop\AdminPanel
-
 # Build entire Convoy solution
 dotnet build Convoy.sln
 
 # Restore dependencies
 dotnet restore Convoy.sln
 
-# Run the API
+# Run the API with network access (for mobile testing)
 cd Convoy.Api
 dotnet run --launch-profile http
 
-# Run with network access (for mobile testing)
-dotnet run --launch-profile http
-
-# Database migrations (from Convoy.Api directory)
-dotnet ef migrations add <MigrationName> --project ../Convoy.Data
-dotnet ef database update --project ../Convoy.Data
-dotnet ef migrations remove --project ../Convoy.Data
+# Run localhost only
+dotnet run --launch-profile "http (localhost only)"
 ```
 
-### Start PostgreSQL (Required for Convoy)
+### Start PostgreSQL (Required)
 
 ```bash
 # Start PostgreSQL in Docker
@@ -50,16 +33,33 @@ docker run --name convoy-postgres -e POSTGRES_PASSWORD=2001 -p 5432:5432 -d post
 
 # Check if PostgreSQL is running
 docker ps
+
+# Restart PostgreSQL if needed
+docker restart convoy-postgres
+
+# View PostgreSQL logs
+docker logs convoy-postgres
 ```
 
-### Other Projects
+### Database Migrations
+
+Always run from `Convoy.Api` directory with `--project` flag:
 
 ```bash
-# ZiyoNurAdminPanel.Ui (WPF Admin)
-dotnet run --project ZiyoNurAdminPanel.Ui/ZiyoNurAdminPanel.Ui/ZiyoNurAdminPanel.Ui.csproj
+# Navigate to API directory
+cd Convoy.Api
 
-# SignalRTest
-dotnet run --project SignalRTest/SignalRTest/SignalRTest.csproj
+# Create migration
+dotnet ef migrations add <MigrationName> --project ../Convoy.Data
+
+# Apply to database
+dotnet ef database update --project ../Convoy.Data
+
+# Rollback migration
+dotnet ef migrations remove --project ../Convoy.Data
+
+# Generate SQL script
+dotnet ef migrations script --project ../Convoy.Data
 ```
 
 ## Architecture: Convoy Solution
@@ -399,17 +399,36 @@ This enables long-term analytics without storing massive amounts of raw location
 
 ## Database Configuration
 
-### Connection String
+### Connection Strings
 
-Located in `Convoy.Api/appsettings.json`:
+The application uses environment-specific appsettings files:
 
+**appsettings.json** (Base configuration):
 ```json
 {
   "ConnectionStrings": {
     "DefaultConnection": "Server=localhost;Database=ConvoyDb;User Id=postgres;Password=2001;Port=5432;"
-  }
+  },
+  "DeploymentUrl": "https://convoy-production-2969.up.railway.app"
 }
 ```
+
+**appsettings.Development.json** (Local development):
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=ConvoyDb;User Id=postgres;Password=2001;Port=5432;"
+  },
+  "DeploymentUrl": "http://localhost:5084"
+}
+```
+
+**appsettings.Production.json** (Railway deployment):
+- Uses `DATABASE_URL` environment variable (auto-configured by Railway)
+- Connection string is empty in file, set via environment variable
+- `DeploymentUrl`: `https://convoy-production-2969.up.railway.app`
+
+**Note**: Local development uses port **5432**. When running PostgreSQL in Docker, map port 5432:5432.
 
 ### Entity Framework Migrations
 
@@ -578,26 +597,32 @@ curl http://localhost:5084/api/dailysummary/user/1?startDate=2024-12-08&endDate=
 4. Register in `Program.cs`: `services.AddHostedService<MyBackgroundService>()`
 5. Use `IServiceProvider` to create scopes for scoped dependencies
 
-## Other Projects in Repository
+## Client Integration Guides
 
-### ZiyoNurAdminPanel.Ui
+The repository includes comprehensive integration guides for different client platforms:
 
-WPF desktop application for ZiyoMarket e-commerce admin panel. See detailed documentation in:
-- `ZiyoNurAdminPanel.Ui/CLAUDE.md` (415 lines)
-- `ZiyoNurAdminPanel.Ui/Readme/WPF_ADMIN_PANEL_README.md`
+### Flutter Integration
 
-**Key Info**:
-- .NET 8.0 WPF with Material Design
-- MVVM architecture with CommunityToolkit.Mvvm
-- Backend API: `https://ziyocenter.onrender.com/api/`
+**File**: `Convoy.Api/FLUTTER_SIGNALR_GUIDE.md`
 
-### SignalRTest
+Complete Flutter integration guide with:
+- SignalR client setup with `signalr_netcore` package
+- Real-time location tracking service
+- GPS integration with `geolocator` package
+- Background location tracking
+- Full code examples and usage patterns
 
-Basic ASP.NET Core 8.0 test project for SignalR functionality. Minimal implementation for testing real-time communication.
+**Quick Start**:
+1. Add dependencies: `signalr_netcore`, `geolocator`, `permission_handler`
+2. Connect to hub: `ws://YOUR_IP:5084/hubs/location`
+3. Send locations: `hubConnection.invoke('SendLocation', ...)`
+4. Listen for updates: `hubConnection.on('LocationUpdated', ...)`
 
-### ZiyoNurAdminPanel (Legacy)
+### WPF Integration
 
-Archived backend project. Refer to `ZiyoNurAdminPanel.Ui/Readme/` for current implementation.
+**File**: `Convoy.Api/WPF_SIGNALR_GUIDE.md`
+
+WPF SignalR integration guide for desktop clients.
 
 ## Troubleshooting
 
@@ -680,17 +705,55 @@ Common causes:
 13. **Query DailySummary instead of raw Locations** for historical data (performance + retention)
 14. **Raw locations are auto-deleted after 7 days** - summaries are permanent
 
-## Flutter Integration
+## Deployment
 
-Complete Flutter integration guide available in `Convoy.Api/FLUTTER_SIGNALR_GUIDE.md`:
-- SignalR client setup with `signalr_netcore` package
-- Real-time location tracking service
-- GPS integration with `geolocator` package
-- Background location tracking
-- Full code examples and usage patterns
+### Railway Deployment
 
-**Quick Start for Flutter**:
-1. Add dependencies: `signalr_netcore`, `geolocator`, `permission_handler`
-2. Connect to hub: `ws://YOUR_IP:5084/hubs/location`
-3. Send locations: `hubConnection.invoke('SendLocation', ...)`
-4. Listen for updates: `hubConnection.on('LocationUpdated', ...)`
+**Production URL**: https://convoy-production-2969.up.railway.app
+
+**File**: `RAILWAY_DEPLOYMENT.md`
+
+Complete Railway deployment guide (in Uzbek) covering:
+- PostgreSQL database setup on Railway
+- Environment variable configuration
+- Database migration application
+- Production CORS settings
+- Continuous deployment setup
+- Troubleshooting common issues
+
+**Key Environment Variables**:
+- `DATABASE_URL` - PostgreSQL connection (auto-configured by Railway)
+- `ASPNETCORE_ENVIRONMENT=Production`
+- `PORT=8080` (Railway default)
+- `ALLOWED_ORIGINS` - Comma-separated list of allowed frontend URLs
+
+**Dockerfile**: Multi-stage build using .NET 8.0 SDK and ASP.NET runtime, exposing port 8080.
+
+**Deployment Status**:
+- Build: ✅ Successful
+- Container: ✅ Running on port 8080
+- Background Service: ✅ Daily summary processing active
+- Database: ✅ Connected to Railway PostgreSQL
+- Test Data: ✅ Seeded (3 test users)
+
+### Production Considerations
+
+1. **Database Connection**: Uses `DATABASE_URL` environment variable in production
+2. **CORS**: Configure `ALLOWED_ORIGINS` for specific domains, or leave unset for `*` (all origins)
+3. **HTTPS**: Railway handles HTTPS via proxy, so `UseHttpsRedirection()` is disabled in production
+4. **Swagger**: Available in production at `/swagger` endpoint
+5. **Port**: Application listens on port 8080 for Railway/cloud deployment
+
+### Testing Production API
+
+```bash
+# Swagger UI
+https://convoy-production-2969.up.railway.app/swagger
+
+# SignalR Hub (WebSocket)
+wss://convoy-production-2969.up.railway.app/hubs/location
+
+# REST API Endpoints
+curl https://convoy-production-2969.up.railway.app/api/user
+curl https://convoy-production-2969.up.railway.app/api/location/latest
+```
